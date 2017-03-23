@@ -1,0 +1,56 @@
+<?php
+
+
+/**
+ * Alter schema adding alias field and index
+ * @param $schema
+ */
+function taxonomy_alias_schema_alter(&$schema) {
+  $schema['taxonomy_term_data']['fields']['alias'] = taxonomy_alias_get_schema_for_column();
+  $schema['taxonomy_term_data']['indexes']['alias'] = taxonomy_alias_get_schema_for_index();
+}
+
+function taxonomy_alias_get_schema_for_column() {
+  return [
+    'type' => 'varchar',
+    'not null' => FALSE,
+    'length' => 128
+  ];
+}
+
+function taxonomy_alias_get_schema_for_index() {
+  return [
+    "alias"
+  ];
+}
+
+/**
+ *
+ */
+function taxonomy_alias_enable() {
+  try {
+    $transaction = db_transaction();
+    module_load_include('module', 'taxonomy_alias');
+    if (!db_field_exists("taxonomy_term_data", "alias")) {
+      db_add_field("taxonomy_term_data", "alias", taxonomy_alias_get_schema_for_column());
+    }
+    if (!db_index_exists('taxonomy_term_data', 'alias')) {
+      db_add_index("taxonomy_term_data", "alias", taxonomy_alias_get_schema_for_index());
+    }
+    drupal_get_complete_schema(true);
+  } catch(\Exception $e) {
+    $transaction->rollback();
+    watchdog_exception('taxonomy_alias', $e);
+  }
+  taxonomy_alias_backfill();
+}
+
+/**
+ *
+ */
+function taxonomy_alias_disable() {
+  if (db_field_exists("taxonomy_term_data", "alias")) {
+    db_drop_field("taxonomy_term_data", "alias");
+  }
+  drupal_get_complete_schema(true);
+}

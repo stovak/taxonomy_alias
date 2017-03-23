@@ -1,0 +1,70 @@
+<?php
+
+
+/**
+ * backfill aliases into the "alias" column
+ */
+function taxonomy_alias_backfill() {
+  try {
+    module_load_include("inc", "pathauto");
+    $q = db_select('taxonomy_term_data', 'ttd');
+    $q->fields('ttd', ['tid', 'vid', 'name']);
+    $q->isNull("ttd.alias");
+    $result = $q->execute();
+    if ($result->rowCount() > 0) {
+      while($term = $result->fetchAssoc()) {
+        db_query('update {taxonomy_term_data} set  alias = :alias  where tid = :tid and vid = :vid', [
+          ":vid" => $term['vid'],
+          ":tid" => $term['tid'],
+          ":alias" => pathauto_cleanstring($term['name'])
+        ]);
+      }
+    }
+  } catch (\Exception $e) {
+    echo "Error updating the database. You will need to re-run the backfill command" . PHP_EOL;
+    echo $e->getMessage() . PHP_EOL;
+    watchdog_exception('taxonomy_alias', $e);
+  }
+}
+
+
+/**
+ * return a term ID for a url-alias path string of the term name
+ * @param string $term_alias
+ * @param string|int $vocabulary either the vocabulary id or name
+ */
+function taxonomy_alias_get_tid_from_alias($term_alias, $vocabulary = null) {
+  $q = db_select("taxonomy_term_data", "ttd");
+  $q->fields("ttd", ['tid']);
+  $q->condition('alias', $term_alias, "=");
+  if ($vocabulary != null) {
+    if (is_numeric($vocabulary)) {
+      $q->condition("vid", $vocabulary, "=");
+    }
+    if (is_string($vocabulary)) {
+      $q->join("taxonomy_vocabulary", "tv", "ttd.vid = tv.vid");
+      $q->condition('tv.name', $vocabulary, "=");
+    }
+  }
+  $results = $q->execute();
+  if ($results->rowCount()) {
+    return $results->fetchField();
+  } else {
+    return null;
+  }
+}
+
+
+/**
+ * Implements hook_taxonomy_term_update().
+ */
+function taxonomy_alias_taxonomy_term_update($term) {
+  taxonomy_alias_backfill();
+}
+
+/**
+ * Implements hook_taxonomy_term_update().
+ */
+function taxonomy_alias_taxonomy_term_insert($term) {
+  taxonomy_alias_backfill();
+}

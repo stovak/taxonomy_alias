@@ -1,0 +1,7 @@
+name = Taxonomy Alias
+description = "Creates a URL-safe index for every taxonomy entry and a nice MySQL index for querying"
+php = 5.6
+core = 7.x
+dependencies[] = taxonomy
+dependencies[] = path
+
